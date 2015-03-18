@@ -212,6 +212,7 @@ namespace {
   const size_t HalfDensitySize = std::extent<decltype(HalfDensity)>::value;
 
   EasyMoveManager EasyMove;
+  int selDepth;
   Value DrawValue[COLOR_NB];
 
   template <NodeType NT>
@@ -870,7 +871,8 @@ namespace {
     if (   !PvNode
         &&  depth < 4 * ONE_PLY
         &&  ttMove == MOVE_NONE
-        &&  eval + razor_margin[pos.variant()][depth / ONE_PLY] <= alpha)
+        &&  eval + razor_margin[pos.variant()][depth / ONE_PLY] <= alpha
+        &&  abs(eval) < 2 * VALUE_KNOWN_WIN)
     {
         if (depth <= ONE_PLY)
             return qsearch<NonPV, false>(pos, ss, alpha, beta, DEPTH_ZERO);
@@ -882,11 +884,12 @@ namespace {
     }
 
     // Step 7. Futility pruning: child node (skipped when in check)
-    if (   !rootNode
+    if (   !PvNode
         &&  depth < 7 * ONE_PLY
         &&  eval - futility_margin(pos.variant(), depth) >= beta
         &&  eval < VALUE_KNOWN_WIN  // Do not return unproven wins
-        &&  pos.non_pawn_material(pos.side_to_move()))
+        &&  pos.non_pawn_material(pos.side_to_move())
+        &&  pos.non_pawn_material(~pos.side_to_move()))
         return eval;
 
     // Step 8. Null move search with verification search (is omitted in PV nodes)
@@ -896,7 +899,9 @@ namespace {
     if (   !PvNode
         &&  eval >= beta
         && (ss->staticEval >= beta - 35 * (depth / ONE_PLY - 6) || depth >= 13 * ONE_PLY)
-        &&  pos.non_pawn_material(pos.side_to_move()))
+        &&  abs(eval) < 2 * VALUE_KNOWN_WIN
+        &&  pos.non_pawn_material(pos.side_to_move())
+        &&  pos.non_pawn_material(~pos.side_to_move()))
     {
         ss->currentMove = MOVE_NULL;
         ss->counterMoves = nullptr;
@@ -913,12 +918,19 @@ namespace {
 
         if (nullValue >= beta)
         {
+            bool PotentialThreat = false;
+
+            PotentialThreat = (MoveList<KING_MOVES>(pos).size() < 1 || MoveList<LEGAL>(pos).size() < 6);
+
             // Do not return unproven mate scores
             if (nullValue >= VALUE_MATE_IN_MAX_PLY)
                 nullValue = beta;
 
-            if (depth < 12 * ONE_PLY && abs(beta) < VALUE_KNOWN_WIN)
+            if (depth < 12 * ONE_PLY && abs(beta) < VALUE_KNOWN_WIN && !PotentialThreat)
                 return nullValue;
+
+            if (PotentialThreat)
+                R = DEPTH_ZERO;
 
             // Do verification search at high depths
             Value v = depth-R < ONE_PLY ? qsearch<NonPV, false>(pos, ss, beta-1, beta, DEPTH_ZERO)
@@ -937,7 +949,8 @@ namespace {
 #endif
     if (   !PvNode
         &&  depth >= 5 * ONE_PLY
-        &&  abs(beta) < VALUE_MATE_IN_MAX_PLY)
+        &&  abs(beta) < VALUE_MATE_IN_MAX_PLY
+        &&  abs(eval) < 2 * VALUE_KNOWN_WIN)
     {
         Value rbeta = std::min(beta + 200, VALUE_INFINITE);
         Depth rdepth = depth - 4 * ONE_PLY;
@@ -1069,7 +1082,7 @@ moves_loop: // When in check search starts from here
 #ifdef RACE
       if (pos.is_race() && type_of(moved_piece) == KING && rank_of(to_sq(move)) > rank_of(from_sq(move))) {} else
 #endif
-      if (  !rootNode
+      if (   !PvNode
           && bestValue > VALUE_MATED_IN_MAX_PLY)
       {
           if (   !captureOrPromotion
@@ -1133,7 +1146,8 @@ moves_loop: // When in check search starts from here
       // re-searched at full depth.
       if (    depth >= 3 * ONE_PLY
           &&  moveCount > 1
-          && (!captureOrPromotion || moveCountPruning))
+          && (!captureOrPromotion || moveCountPruning)
+          &&  selDepth > depth)
       {
           Depth r = reduction<PvNode>(improving, depth, moveCount);
 
@@ -1786,6 +1800,7 @@ string UCI::pv(const Position& pos, Depth depth, Value alpha, Value beta) {
   size_t multiPV = std::min((size_t)Options["MultiPV"], rootMoves.size());
   uint64_t nodesSearched = Threads.nodes_searched();
   uint64_t tbHits = Threads.tb_hits() + (TB::RootInTB ? rootMoves.size() : 0);
+  selDepth = 0;
 
   for (size_t i = 0; i < multiPV; ++i)
   {
