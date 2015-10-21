@@ -212,7 +212,7 @@ namespace {
   const size_t HalfDensitySize = std::extent<decltype(HalfDensity)>::value;
 
   EasyMoveManager EasyMove;
-  int selDepth;
+  bool study = Options["Study"];
   Value DrawValue[COLOR_NB];
 
   template <NodeType NT>
@@ -638,6 +638,7 @@ namespace {
     bool captureOrPromotion, doFullDepthSearch, moveCountPruning;
     Piece moved_piece;
     int moveCount, quietCount;
+
 
     // Step 1. Initialize node
     Thread* thisThread = pos.this_thread();
@@ -1177,6 +1178,9 @@ moves_loop: // When in check search starts from here
               // Decrease/increase reduction for moves with a good/bad history
               r = std::max(DEPTH_ZERO, (r / ONE_PLY - ss->history / 20000) * ONE_PLY);
           }
+
+          if (study && ss->ply < depth / 2 - ONE_PLY)
+              r = DEPTH_ZERO;
 
           Depth d = std::max(newDepth - r, ONE_PLY);
 
