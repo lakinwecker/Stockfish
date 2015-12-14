@@ -107,7 +107,7 @@ const int MAX_MOVES = 512;
 #else
 const int MAX_MOVES = 256;
 #endif
-const int MAX_PLY   = 128;
+const int MAX_PLY   = 250;
 
 enum Variant {
   CHESS_VARIANT,
