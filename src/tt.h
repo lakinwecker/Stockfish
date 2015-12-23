@@ -39,7 +39,7 @@ struct TTEntry {
   Move  move()  const { return (Move )move16; }
   Value value() const { return (Value)value16; }
   Value eval()  const { return (Value)eval16; }
-  Depth depth() const { return (Depth)(depth8 * int(ONE_PLY)) + DEPTH_NONE; } // DEPTH_NONE is negative
+  Depth depth() const { return (Depth)(depth8 * int(ONE_PLY)); }
   Bound bound() const { return (Bound)(genBound8 & 0x3); }
 
   void save(Key k, Value v, Bound b, Depth d, Move m, Value ev, uint8_t g) {
@@ -50,19 +50,17 @@ struct TTEntry {
     if (m || k != key)
         move16 = (uint16_t)m;
 
-    assert(depth - DEPTH_NONE >= 0);
-
     // Don't overwrite more valuable entries
     if (  (k != key)
-        || d - DEPTH_NONE > depth8 - 4
+        || d > depth8 - 4
      /* || g != (genBound8 & 0xFC) // Matching non-zero keys are already refreshed by probe() */
         || b == BOUND_EXACT)
     {
         key       =  k;
         value16   = (int16_t)v;
         eval16    = (int16_t)ev;
-        depth8    = (uint8_t)((d / ONE_PLY) - DEPTH_NONE);
         genBound8 = (uint8_t)(g | b);
+        depth8    = (uint8_t)(d / ONE_PLY);
     }
   }
 
@@ -74,7 +72,7 @@ private:
   int16_t  value16;
   int16_t  eval16;
   uint8_t  genBound8;
-  uint8_t  depth8;
+  int8_t   depth8;
 };
 
 
