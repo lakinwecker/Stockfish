@@ -213,6 +213,7 @@ namespace {
 
   EasyMoveManager EasyMove;
   bool study = Options["Study"];
+  bool cleanSearch = Options["Clean Search"];
   Value DrawValue[COLOR_NB];
 
   template <NodeType NT>
@@ -419,6 +420,9 @@ void Thread::search() {
   MainThread* mainThread = (this == Threads.main() ? Threads.main() : nullptr);
 
   std::memset(ss-4, 0, 7 * sizeof(Stack));
+
+  if (cleanSearch)
+      Search::clear();
 
   bestValue = delta = alpha = -VALUE_INFINITE;
   beta = VALUE_INFINITE;
@@ -823,9 +827,9 @@ namespace {
                 if (    abs(v) <= drawScore
                     || (!ttHit || ((v < -drawScore && ttValue > -VALUE_KNOWN_WIN) || (v > drawScore && ttValue < VALUE_KNOWN_WIN))))
                 {
-                    value =  v < -drawScore ? -VALUE_MATE_IN_MAX_PLY + ONE_PLY + ss->ply
-                           : v >  drawScore ?  VALUE_MATE_IN_MAX_PLY - ONE_PLY - ss->ply
-                                            :  VALUE_DRAW + 2 * v * drawScore;
+                    value =  v < -drawScore ? -VALUE_MATE_IN_MAX_PLY + ss->ply + (pos.non_pawn_material(pos.side_to_move()) - pos.non_pawn_material(~pos.side_to_move())) / 256
+                           : v >  drawScore ?  VALUE_MATE_IN_MAX_PLY - ss->ply + (pos.non_pawn_material(pos.side_to_move()) - pos.non_pawn_material(~pos.side_to_move())) / 256
+                                            :  VALUE_DRAW + v * drawScore;
 
                     tte->save(posKey, value_to_tt(value, ss->ply),
                               v > drawScore ? BOUND_LOWER : v < -drawScore ? BOUND_UPPER : BOUND_EXACT,
@@ -1900,18 +1904,8 @@ void Tablebases::filter_root_moves(Position& pos, Search::RootMoves& rootMoves) 
     // contains only moves that preserve the draw or the win.
     RootInTB = root_probe(pos, rootMoves, TB::Score);
 
-    if (RootInTB)
-        Cardinality = 0; // Do not probe tablebases during the search
-
-    else // If DTZ tables are missing, use WDL tables as a fallback
-    {
-        // Filter out moves that do not preserve the draw or the win.
+    if (!RootInTB) // If DTZ tables are missing, use WDL tables as a fallback
         RootInTB = root_probe_wdl(pos, rootMoves, TB::Score);
-
-        // Only probe during search if winning
-        if (RootInTB && TB::Score <= VALUE_DRAW)
-            Cardinality = 0;
-    }
 
     if (RootInTB && !UseRule50)
         TB::Score =  TB::Score > VALUE_DRAW ?  VALUE_MATE - MAX_PLY - 1

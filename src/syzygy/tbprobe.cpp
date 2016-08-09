@@ -324,11 +324,11 @@ int off_A1H8(Square sq) { return int(rank_of(sq)) - file_of(sq); }
 Square flipdiag(Square square) { return Square(((square >> 3) | (square << 3)) & 63); }
 
 const Value WDL_to_value[] = {
-   -VALUE_MATE + MAX_PLY + 1,
+   -VALUE_MATE_IN_MAX_PLY + MAX_PLY,
     VALUE_DRAW - 2,
     VALUE_DRAW,
     VALUE_DRAW + 2,
-    VALUE_MATE - MAX_PLY - 1
+    VALUE_MATE_IN_MAX_PLY - MAX_PLY
 };
 
 const std::string PieceToChar = " PNBRQK  pnbrqk";
