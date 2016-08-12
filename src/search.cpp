@@ -213,7 +213,6 @@ namespace {
 
   EasyMoveManager EasyMove;
   bool study = Options["Study"];
-  bool cleanSearch = Options["Clean Search"];
   Value DrawValue[COLOR_NB];
 
   template <NodeType NT>
@@ -420,9 +419,6 @@ void Thread::search() {
   MainThread* mainThread = (this == Threads.main() ? Threads.main() : nullptr);
 
   std::memset(ss-4, 0, 7 * sizeof(Stack));
-
-  if (cleanSearch)
-      Search::clear();
 
   bestValue = delta = alpha = -VALUE_INFINITE;
   beta = VALUE_INFINITE;
