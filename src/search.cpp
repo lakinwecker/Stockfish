@@ -804,7 +804,7 @@ namespace {
 #endif
     if (!rootNode && TB::Cardinality)
     {
-        int piecesCnt = pos.count<ALL_PIECES>(WHITE) + pos.count<ALL_PIECES>(BLACK);
+        int piecesCnt = popcount(pos.pieces());
 
         if (    piecesCnt <= TB::Cardinality
             && (piecesCnt <  TB::Cardinality || depth >= TB::ProbeDepth)
@@ -821,7 +821,9 @@ namespace {
                 int drawScore = TB::UseRule50 ? 1 : 0;
 
                 if (    abs(v) <= drawScore
-                    || (!ttHit || ((v < -drawScore && ttValue > -VALUE_KNOWN_WIN) || (v > drawScore && ttValue < VALUE_KNOWN_WIN))))
+                    || !ttHit
+                    || (v < -drawScore && ttValue > -VALUE_KNOWN_WIN)
+                    || (v >  drawScore && ttValue <  VALUE_KNOWN_WIN))
                 {
                     value =  v < -drawScore ? -VALUE_MATE_IN_MAX_PLY + ss->ply + (pos.non_pawn_material(pos.side_to_move()) - pos.non_pawn_material(~pos.side_to_move())) / 256
                            : v >  drawScore ?  VALUE_MATE_IN_MAX_PLY - ss->ply + (pos.non_pawn_material(pos.side_to_move()) - pos.non_pawn_material(~pos.side_to_move())) / 256
