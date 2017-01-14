@@ -563,13 +563,14 @@ namespace {
     ei.attackedBy[Us][ALL_PIECES] = b | ei.attackedBy[Us][PAWN];
 
     // Init our king safety tables only if we are going to use them
-    if ((
+    if (
 #ifdef ANTI
         !pos.is_anti() &&
 #endif
-        (pos.non_pawn_material(Them) >= QueenValueMg))
 #ifdef CRAZYHOUSE
-        || pos.is_house()
+        (pos.is_house() ? pos.count_in_hand(Us, ALL_PIECES) : (pos.non_pawn_material(Us) >= QueenValueMg))
+#else
+        (pos.non_pawn_material(Us) >= QueenValueMg)
 #endif
     )
     {
@@ -796,16 +797,17 @@ namespace {
                     + 101 * ei.kingAdjacentZoneAttacksCount[Them]
                     + 235 * popcount(undefended)
                     + 134 * (popcount(b) + !!pos.pinned_pieces(Us))
-                    - 717 * (!(pos.count<QUEEN>(Them)
 #ifdef CRAZYHOUSE
-                               || pos.is_house()
+                    - 717 * (!(pos.is_house() ? pos.count_in_hand(Them, ALL_PIECES) : pos.count<QUEEN>(Them)))
+#else
+                    - 717 * (!(pos.count<QUEEN>(Them)))
 #endif
-                            ))
                     -   7 * mg_value(score) / 5 - 5;
         Bitboard h = 0;
 
 #ifdef CRAZYHOUSE
-        if (pos.is_house()) {
+        if (pos.is_house())
+        {
             for (PieceType pt = PAWN; pt <= QUEEN; ++pt)
                 kingDanger += KingDangerInHand[pt] * pos.count_in_hand(Them, pt);
             h = pos.count_in_hand(Them, QUEEN) ? undefended & ~pos.pieces() : 0;
