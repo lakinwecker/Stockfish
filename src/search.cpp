@@ -369,7 +369,7 @@ void MainThread::search() {
   // Check if there are threads with a better score than main thread
   Thread* bestThread = this;
 #ifdef USELONGESTPV
-  size_t longestPlies = 0;
+  size_t targetPVLength = 0;
   Thread* longestPVThread = this;
   const size_t minPlies = 6;
   const int maxScoreDiff = 20;
@@ -389,43 +389,47 @@ void MainThread::search() {
           if (scoreDiff > 0 && depthDiff >= 0)
               bestThread = th;
 #ifdef USELONGESTPV
-          longestPlies = std::max(th->rootMoves[0].pv.size(), longestPlies);
+          targetPVLength = std::max(th->rootMoves[0].pv.size(), targetPVLength);
 #endif
       }
 
 #ifdef USELONGESTPV
+      targetPVLength = std::min(minPlies, targetPVLength);
       longestPVThread = bestThread;
-      if (bestThread->rootMoves[0].pv.size() < std::min(minPlies, longestPlies))
+      auto score = [](Thread *t) -> Value { return t->rootMoves[0].score; };
+      auto pvSize = [](Thread *t) -> long unsigned int { return t->rootMoves[0].pv.size(); };
+      auto depth = [](Thread *t) -> Depth { return t->completedDepth; };
+      if (bestThread->rootMoves[0].pv.size() < targetPVLength)
       {
           // Select the best thread that meets the minimum move criteria
           // and is within the appropriate range of score eval
           for (Thread* th : Threads)
           {
-              if (th->rootMoves[0].pv.size() <= bestThread->rootMoves[0].pv.size())
+              if (pvSize(th) <= pvSize(bestThread))
                   continue;
               auto begin = bestThread->rootMoves[0].pv.begin(),
                      end = bestThread->rootMoves[0].pv.end();
               if (std::mismatch(begin, end, th->rootMoves[0].pv.begin()).first != end)
                   continue;
 
-              if (longestPVThread->rootMoves[0].pv.size() < std::min(minPlies, longestPlies))
+              if (pvSize(longestPVThread) < targetPVLength)
               {
                   // If our current longest is short, allow a weakening of score
                   // and depth to an absolute max of maxScoreDiff / maxDepthDiff
                   // compared to the bestThread
-                  if (   th->rootMoves[0].pv.size() >= longestPVThread->rootMoves[0].pv.size()
-                      && abs(bestThread->rootMoves[0].score - th->rootMoves[0].score) < maxScoreDiff
-                      && (bestThread->completedDepth - th->completedDepth < maxDepthDiff))
+                  if (   pvSize(th) >= pvSize(longestPVThread)
+                      && abs(score(bestThread) - score(th)) < maxScoreDiff
+                      && (depth(bestThread) - depth(th) < maxDepthDiff))
                       longestPVThread = th;
               }
               else
               {
                   // Since longestPVThread is already long, only select among
                   // threads with long PVs with strong eval/depth
-                  if (   th->rootMoves[0].pv.size() >= std::min(minPlies, longestPlies)
-                      && abs(bestThread->rootMoves[0].score - th->rootMoves[0].score) < maxScoreDiff
-                      && (   th->rootMoves[0].score >= longestPVThread->rootMoves[0].score
-                          || th->completedDepth >= longestPVThread->completedDepth)
+                  if (   pvSize(th) >= targetPVLength
+                      && abs(score(bestThread) - score(th)) < maxScoreDiff
+                      && (   score(th) >= score(longestPVThread)
+                          || depth(th) >= depth(longestPVThread))
                      )
                      longestPVThread = th;
               }
