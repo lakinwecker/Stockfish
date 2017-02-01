@@ -468,7 +468,7 @@ namespace {
   const Score TrappedRook         = S(92,  0);
   const Score WeakQueen           = S(50, 10);
   const Score OtherCheck          = S(10, 10);
-  const Score CloseEnemies[VARIANT_NB] = {
+  Score CloseEnemies[VARIANT_NB] = {
     S( 7,  0),
 #ifdef ANTI
     S( 0,  0),
@@ -498,6 +498,7 @@ namespace {
     S(15,  0),
 #endif
   };
+  TUNE(CloseEnemies[ATOMIC_VARIANT]);
   const Score PawnlessFlank       = S(20, 80);
   const Score LooseEnemies        = S( 0, 25);
   const Score ThreatByHangingPawn = S(71, 61);
